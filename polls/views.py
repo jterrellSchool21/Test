@@ -1,54 +1,60 @@
+from rest_framework.generics import (
+    get_object_or_404,
+    ListCreateAPIView,
+    RetrieveUpdateDestroyAPIView,
+)
+
 from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.generics import get_object_or_404
 
-from .models import Question, Users, Answer
-from .serializers import QuestionSerializer, UsersSerializer
+from .models import Token, Question, Poll, Answer
+from .serializers import *
+from datetime import datetime
 
-import os
-import binascii
+class PollListView(ListCreateAPIView):
+    queryset = Poll.objects.filter(date_end__gte = datetime.now())
+    serializer_class = PollSerializer
 
-class QuestionView(APIView):
-    def get(self, request):
-        objects = Question.objects.all().filter(is_active=True)
-        serializer = QuestionSerializer(objects, many=True)
-        return Response({"Active": serializer.data})
+class PollDetailView(RetrieveUpdateDestroyAPIView):
+    queryset = Poll.objects.all()
+    serializer_class = PollSerializer
 
-    def post(self, request):
-        question = request.data.get("Active")
-        serializer = QuestionSerializer(data=question)
-        if serializer.is_valid(raise_exception=True):
-            question_saved = serializer.save()
-        return Response({"success": "Question '{}' created successfully".format(question_saved.title)})
+class QuestionListView(ListCreateAPIView):
+    queryset = Question.objects.all()
+    serializer_class = QuestionSerializer
 
-    def put(self, request, pk):
-        saved_question = get_object_or_404(Question.objects.all(), pk=pk)
-        data = request.data.get('Active')
-        serializer = QuestionSerializer(instance=saved_question, data=data, partial=True)
-        # data = request.data.get('Active')
-        # serializer = QuestionSerializer(instance=saved_question, data=data, partial=True)
-        if serializer.is_valid(raise_exception=True):
-            question_saved = serializer.save()
-        return Response({
-            "success": "Question '{}' updated successfully".format(question_saved.title)
-        })
-    
-    def delete(self, request, pk):
-        question = get_object_or_404(Article.objects.all(), pk=pk)
-        question.delete()
-        return Response({
-            "message": "Question with id '{}' has been deleted.".format(pk)
-        }, status=204)
+class QuestionDetailView(RetrieveUpdateDestroyAPIView):
+    queryset = Question.objects.all()
+    serializer_class = QuestionSerializer
 
-class UsersView(APIView):
+class GetTokenView(APIView):
     def get(self, request):
         token = binascii.hexlify(os.urandom(20)).decode()
-        user = UsersSerializer({"token": token})
-        # Users.objects.create(user)
-        return Response({"token": token})
+        token_serialize = TokenSerializer(request.data)
+        token_serialize.is_valid(raise_exception=True)
+        token_serialize.save()
 
+class VoteView(APIView):
     def post(self, request):
-        answer = request.data.get("Answer")
-        data = UsersSerializer(data)
-        Users.objects.filter(token == data.token).update(question_id = data.question_id)
-        Answer.objects.filter(answer_id == int(data.question_id.split('_')[1])).update(votes = votes + 1)
+        token_id = request.META.get('Token')
+        if not token_id:
+            return Response(status=403)
+        question_id = request.data.get("question_id")
+        answer_type = Question.objects.filter(questions=qeustion_id).get("answer_type")
+        if answer_type == 1:
+            answer_serialize = answer1(request.data)
+        elif answer_type == 2:
+            answer_serialize = answer2(request.data)
+        elif answer_type == 3:
+            answer_serialize = answer3(request.data)
+        token = Token.object.filter(id=token_id).first()
+        if token.questions.filter(pk=Question_id).exists():
+            return Response(status=403)
+        else:
+            answer_serialize.is_valid(raise_exception=True)
+            answer_serialize.save()
+
+class AllVoteView(APIView):
+    def get(self, request):
+        token_id = request.META.get("Token")
+        questions = Token.objects.filter(token=token_id)
+        return Response({"questions": questions.get("questions"), "answers": questions.get("answers")}, status=200)
